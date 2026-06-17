@@ -35,7 +35,8 @@ typedef enum {
     TYPE_JMP,
     TYPE_JZ,
     TYPE_JE,
-    TYPE_JNE
+    TYPE_JNE,
+    TYPE_PATCH
 } PATCH_TYPE;
 
 typedef struct _URLREWRITERULE {
@@ -55,6 +56,7 @@ typedef struct _PATCH_DATA {
         short i16;
         int i;
         char *str;
+        LPSTR patch; // For raw patch data
         struct {
             DWORD target;
         } jmp;

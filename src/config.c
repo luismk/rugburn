@@ -92,8 +92,12 @@ static void ReadJsonPatchAddressMap(LPSTR *json, LPCSTR key) {
             p->type = TYPE_JNE;
         else if (!strcmp(typeStr, "int"))
             p->type = TYPE_INT;
+        else if (!strcmp(typeStr, "uint"))
+            p->type = TYPE_UINT;
         else if (!strcmp(typeStr, "jmp"))
             p->type = TYPE_JMP;
+        else if (!strcmp(typeStr, "patch"))
+            p->type = TYPE_PATCH;
     } else if (!strcmp(key, "value")) {
         if (p->type == TYPE_STRING) {
             p->data.val.str = DupStr(JsonReadString(json));
@@ -107,6 +111,8 @@ static void ReadJsonPatchAddressMap(LPSTR *json, LPCSTR key) {
             p->data.val.i = JsonReadInteger(json);
         } else if (p->type == TYPE_JMP) {
             p->data.val.jmp.target = ParseAddress(JsonReadString(json));
+        } else if (p->type == TYPE_PATCH) {
+            ParsePatch(JsonReadString(json), &p->data.val.patch, &p->size);
         }
     } else if (!strcmp(key, "length") || !strcmp(key, "size")) {
         p->size = JsonReadInteger(json);
@@ -225,7 +231,22 @@ void PatchAddress() {
             continue;
 
         if (p->description) {
-            Log("[Rugburn] Rewriter Patch: %s (Addr: 0x%08lX)\r\n", p->description, p->addr);
+            unsigned char *oldBuffer = (unsigned char *)calloc(p->size, 1);
+            if (oldBuffer) {
+                Read(p->addr, oldBuffer, p->size);
+
+                if (p->description) {
+                    if (p->type == TYPE_STRING) {
+                        Log("[Rugburn] PATCH[%s] | OLD: '%s' -> NEW: '%s'\r\n", p->description,
+                            oldBuffer, p->data.val.str);
+                    } else if (p->type == TYPE_UINT || p->type == TYPE_INT) {
+                        unsigned int oldVal = *(unsigned int *)oldBuffer;
+                        Log("[Rugburn] PATCH[%s] | OLD: %u -> NEW: %u\r\n", p->description, oldVal,
+                            p->data.val.i);
+                    }
+                }
+                free(oldBuffer);
+            }
         }
 
         switch (p->type) {
@@ -286,6 +307,10 @@ void PatchAddress() {
             Patch(p->addr, &jne, 1);
             break;
         }
-     }
+        case TYPE_PATCH: {
+            Patch(p->addr, p->data.val.patch, p->size);
+            break;
+        }
+        }
     }
 }
